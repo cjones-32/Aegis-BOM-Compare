@@ -1,6 +1,5 @@
 import csv
 import os
-import re
 
 def loadBOM(BOMpath):
     # Dictionary to store the BOM, ref des is Key, PN is Value
@@ -88,11 +87,11 @@ def outputChanges(changes):
         print('No changes detected!')
     # Print component changes
     for combo in changedParts:
-        print('\to   Replace', end='')
+        print('\t\to   Replace', end='')
         comma = False
         for change in changes:
             if change['newPN'] + ' - ' + change['oldPN'] == combo:
-                description = f'\n\t\t▪   {change["oldPN"]} (new qty {change["oldPNqty"]})\n\t\t▪   {change["newPN"]} (new qty {change["newPNqty"]})'
+                description = f'\n\t\t\t▪   {change["oldPN"]} (new qty {change["oldPNqty"]})\n\t\t\t▪   {change["newPN"]} (new qty {change["newPNqty"]})'
                 if comma is True:
                     print(',',end='')
                 print(' ' + change['refdes'], end='')
@@ -100,11 +99,11 @@ def outputChanges(changes):
         print(description)
     # Print added parts
     for part in addedParts:
-        print('\to   Add', end='')
+        print('\t\to   Add', end='')
         comma = False
         for change in changes:
             if change['newPN'] == part:
-                description = f'\n\t\t▪   {change["newPN"]} (new qty {change["newPNqty"]})'
+                description = f'\n\t\t\t▪   {change["newPN"]} (new qty {change["newPNqty"]})'
                 if comma is True:
                     print(',',end='')
                 print(' ' + change['refdes'], end='')
@@ -112,11 +111,11 @@ def outputChanges(changes):
         print(description)
     # Print DNI parts
     for DNI in removedParts:
-        print('\to   DNI', end='')
+        print('\t\to   DNI', end='')
         comma = False
         for change in changes:
             if change['oldPN'] == DNI:
-                description = f'\n\t\t▪   {change["oldPN"]} (new qty {change["oldPNqty"]})'
+                description = f'\n\t\t\t▪   {change["oldPN"]} (new qty {change["oldPNqty"]})'
                 if comma is True:
                     print(',',end='')
                 print(' ' + change['refdes'], end='')
@@ -135,9 +134,10 @@ def askLinks():
     oldBOMpath = input('Enter path to old Aegis BOM: ').strip('" ')
     oldBOM = loadBOM(oldBOMpath)
     assyName = newBOMpath.split("Sync_")[1][:9]
+    pcbNumber = f'{assyName[:5]}B46{assyName[7:9]}'
     assyRev = newBOMpath[-7:-4]
-    showExtraFiles(assyName, assyRev)
-    print(f'✤   BOM changes (from {os.path.basename(oldBOMpath.split("Sync_")[1].split(".")[0])} to {os.path.basename(newBOMpath.split("Sync_")[1].split(".")[0])}):')
+    BOMLine = f'\t✤   BOM changes (from {os.path.basename(oldBOMpath.split("Sync_")[1].split(".")[0])} to {os.path.basename(newBOMpath.split("Sync_")[1].split(".")[0])}):'
+    showHeader(pcbNumber, assyName, assyRev, BOMLine)
     compareBOMs(newBOM, oldBOM)
 
 # Swap is bool for if the newest file needs to be swapped for most recent rev
@@ -147,9 +147,9 @@ def findBOMs(swap):
     assyName = ''
     assyRev = ''
     # Verify there are only two BOMs in the folder with the script
-    if len(os.listdir(os.getcwd())) == 3:
+    if len(os.listdir(os.getcwd())) == 5:
         for file in os.listdir(os.getcwd()):
-            if not re.search('\.py$', file, re.IGNORECASE):
+            if file[-3:] != '.py':
                 # Enter the files in order of date
                 if os.path.getmtime(file) < date:
                     if swap == False:
@@ -166,18 +166,37 @@ def findBOMs(swap):
         newBOM = loadBOM(f'{os.getcwd()}\\{files[0]}')
         oldBOM = loadBOM(f'{os.getcwd()}\\{files[1]}')
         assyName = files[0].split("Sync_")[1][:9]
+        pcbNumber = f'{assyName[:5]}B46{assyName[7:9]}'
         assyRev = files[0][-7:-4]
-        showExtraFiles(assyName, assyRev)
-        
-        print(f'✤   BOM changes (from {files[1].split("Sync_")[1].split(".")[0]} to {files[0].split("Sync_")[1].split(".")[0]}):')
+        BOMLine = f'\t✤   BOM changes (from {files[1].split("Sync_")[1].split(".")[0]} to {files[0].split("Sync_")[1].split(".")[0]}):'
+        showHeader(pcbNumber, assyName, assyRev, BOMLine)
         compareBOMs(newBOM, oldBOM)
     else:
         print('Error: Expecting 2 BOMs in a folder with the script. Entering Manual Mode')
         askLinks()
 
-def showExtraFiles(assyName, assyRev):
-    print(f'•   Specification Drawing {assyName[:5]}B46{assyName[7:9]}{assyRev}.pdf\n')
-    print(f'•   Assembly/Schematic Drawing {assyName}{assyRev}.pdf')
-    print(f'•   {assyName}{assyRev} SAP Import File.xlsx')
+def showHeader(pcbNumber, assyName, assyRev, BOMLine):
+    pcbRev = ''.join([i for i in assyRev if i.isalpha()])
+    if os.path.basename(__file__) == 'Release - Aegis BOM Compare.py':
+        ECMNumber = input('Please enter ECM number: ')
+        print(f'\nRELEASE TO PRODUCTION: ECM {ECMNumber} - {pcbNumber}{pcbRev}\n')
+        print('All the documentation required for the release of this PCB is located here:\n')
+        print(f'\"\\\\etclink.net\\etcdata\\mid\\MfgEng\\Public\\.DWGs FROM PCB DESIGN GROUP\\{ECMNumber}\"\n')
+        print(f'•   Specification Drawing {pcbNumber}{pcbRev}_{pcbRev}0.pdf\n')
+        print(f'•   Assembly/Schematic Drawing {assyName}{assyRev}.pdf')
+        print(f'•   {assyName}{assyRev} SAP Import File.xlsx')
+    elif os.path.basename(__file__) == 'Assy ECM - Aegis BOM Compare.py':
+        ECMNumber = input('Please enter ECM number: ')
+        print(f'\nASSY DOCS FOR ECM {ECMNumber} - {assyName}{assyRev}\n')
+        print('All the documentation required for this ECM is located here:\n')
+        print(f'\"\\\\etclink.net\\etcdata\\mid\\MfgEng\\Public\\.DWGs FROM PCB DESIGN GROUP\\{ECMNumber}\"\n')
+        print(f'•   Assembly/Schematic Drawing {assyName}{assyRev}.pdf')
+        print(f'•   {assyName}{assyRev} SAP Import File.xlsx')
+    else:
+        print(f'•   Assembly/Schematic Drawing {assyName}{assyRev}.pdf')
+        print(f'•   {assyName}{assyRev} SAP Import File.xlsx')
     
+    print(BOMLine)
+            
+
 findBOMs(False)
